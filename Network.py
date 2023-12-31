@@ -1,60 +1,65 @@
+from Layer import BaseActivation, BaseLayer, Dense
+from Loss import BaseLoss
 import numpy as np
-from Layer import BaseActivation, BaseLayer
 
 class Network:
     
-    def __init__(self, data):
+    def __init__(self, data, loss):
         self.layers = list()
         self.data = data
-        # self.weights = list()
-        # self.bias = list()
+        self.loss = loss
+    
+    def __repr__(self):
+        ret = str()
+        ret += 'Displaying Network\n'
+        for i, layer in enumerate(self.layers):
+            ret += f"Layer {i}.\n\ttype: {type(layer)}\n"
+            if isinstance(layer,Dense):
+                if i != 0:
+                    ret += f"\tShape {layer.weights.shape}\n"
+        return ret
 
     def add(self, layer, activation:BaseActivation = None):
-        self.layer = layer
         self.layers.append(layer)
-        # print(f'Layer: {type(layer)}')
-        # self.add_weights()
-        # print(f'Weights: {self.layer.weights}')
-        # self.add_bias()
-        # print(f'Bias: {self.layer.bias}')
         if activation != None:
             self.layers.append(activation)
 
-    # def add_weights(self):
-    #     # if len(self.layers) <= 1:
-    #     #     return
-    #     new_weights = np.random.normal(loc=0, scale=1, size=(self.layers[-1].n_nodes, ))
-    #     self.layer.weights.append(new_weights)
-        
-    # def add_bias(self):
-    #     # if len(self.layers) <= 1:
-    #     #     return
-    #     new_bias = np.random.normal(loc=0, scale=1, size=(1))
-    #     self.layer.bias.append(new_bias)
-            
-    def compile(self):
-        i=0
-        while i<=len(self.layers)-1:
-            if isinstance(self.layers[i], BaseLayer):
-                if i==0: #FIRST DENSE LAYER
-                    weights = np.random.normal(loc=0, scale=1, size=(self.layers[i].n_nodes,self.layers[i+2].n_nodes))
-                    self.layers[i].weights.append(weights)
-                    bias = np.random.normal(loc=0, scale=1, size=(1))
-                    self.layers[i].bias.append(bias)
-                elif i+2 <= len(self.layers)-1: #MIDDLE LAYERS
-                    weights = np.random.normal(loc=0, scale=1, size=(self.layers[i].n_nodes,self.layers[i+2].n_nodes))
-                    self.layers[i].weights.append(weights)
-                    bias = np.random.normal(loc=0, scale=1, size=(1))
-                    self.layers[i].bias.append(bias)
-                elif self.layers[i] == self.layers[-2]: #LAST DENSE LAYER
-                    pass
-               
-                print(f'Dense #: {i%2}\n Layer Type: {self.layers[i]}\n, Weights: {self.layers[i].weights}\n,Bias: {self.layers[i].bias}, Activation: {self.layers[i+1]}')
-            i = i+1
+
+    def compile(self, debug=0):
+        for i, layer in reversed(list(enumerate(self.layers))[1:]): #LOOP THROUGH ALL LAYERS AND EXCLUDE INPUT LAYER
+            if isinstance(layer, Dense):
+                prevDense = self.layers[self.findPreviousDense(i)]
+                #self.layers[i]
+                layer.weights = np.random.normal(loc=0, scale=1, size=(prevDense.n_nodes,layer.n_nodes))
+                #self.layers[i]
+                layer.bias = np.random.normal(loc=0, scale=1, size=(1, layer.n_nodes))
+                if debug == 1:
+                    print(f'Dense Layer #: {int(i)}\nLayer Type: {type(layer)}\nWeights: {layer.weights}\nBias: {layer.bias}\n')
+                    print('~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~')
+                
+    def findPreviousDense(self, i):
+        for j in range(i-1, -1, -1):
+            if isinstance(self.layers[j], Dense):
+                return j
+        raise Exception(f'No Dense Layer Found Before Layer {i}')
 
     def forward(self):
         intermediate = self.data
         for layer in self.layers:
             intermediate = layer.forward(intermediate)
         return intermediate
+    
+    def calcLoss(self, y_true, y_pred):
+        loss = self.loss.forward(y_true, y_pred)
+        return loss
 
+
+    def backward(self):
+        all_dx = self.loss.backward()
+        for i, sample in enumerate(all_dx):
+            dx = sample
+            # print(f"ran {i}")
+            for layer in reversed(self.layers):
+                dx = layer.backward(i, dx)
+                print(layer)
+            
